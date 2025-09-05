@@ -1,2 +1,3 @@
-4_enron_mail_nlp/data/extracted_data/*
+4_enron_mail_nlp/data/*
 4_enron_mail_nlp/data/deleted_emails.csv
+requirements.txt
