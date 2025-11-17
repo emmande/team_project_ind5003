@@ -8,6 +8,7 @@ import json
 from datetime import date
 import plotly.express as px
 from sentence_transformers import SentenceTransformer, util
+import textwrap
 
 # Connect to SQLite
 
@@ -77,7 +78,8 @@ def load_data():
         st.error(f"Error loading data from database: {e}")
         return pd.DataFrame()
 
-df_embed = load_data()
+# df_embed = load_data()
+df_embed = None
 
 # --- Model Loading ---
 @st.cache_resource
@@ -115,13 +117,31 @@ def make_wordcloud(words_freq):
 def representative_email(source_table='embeddings',topic_label='reduced_labels_dbscan_cut', topic_value=1):
     try:
         conn = sqlite3.connect(database_path) # connect to sqlite database
-        filtered_emails = pd.read_sql(f'''SELECT email_body, hdbscan_clusters_roberta_prob  FROM
+        filtered_emails = pd.read_sql(f'''SELECT cleaned_email_body, hdbscan_clusters_roberta_prob  FROM
         {source_table}
     WHERE
         {topic_label} = {topic_value}
     order by hdbscan_clusters_roberta_prob DESC
-    limit 3
-        ''', conn)
+    limit 2
+        ''', conn)# order by hdbscan_clusters_roberta_prob DESC
+        conn.close()
+
+        return filtered_emails
+    except Exception as e:
+        st.error(f"Error loading data from database: {e}")
+        return pd.DataFrame()
+    
+@st.cache_resource
+def topic_email(source_table='embeddings',topic_label='reduced_labels_dbscan_cut', topic_value=1):
+    try:
+        conn = sqlite3.connect(database_path) # connect to sqlite database
+        filtered_emails = pd.read_sql(f'''SELECT email_body, cleaned_email_body,hdbscan_clusters_roberta_prob FROM
+        {source_table}
+    WHERE
+        {topic_label} = {topic_value}
+    order by hdbscan_clusters_roberta_prob DESC
+    
+        ''', conn)# order by hdbscan_clusters_roberta_prob DESC
         conn.close()
 
         return filtered_emails
@@ -132,7 +152,7 @@ def representative_email(source_table='embeddings',topic_label='reduced_labels_d
 def make_analysis_charts(df):
     
     df['date_short_month']  = pd.to_datetime(df['date_short']).dt.strftime('%b')
-
+    df['person_box'] = df['person_box'].str.upper()
     # Ensure all months are present, even with zero emails
     all_months = [date(2001, m, 1).strftime('%b') for m in range(1, 13)]
     df_trend = df.groupby(['date_short_month','sub_mailbox'])['email_count'].sum().reset_index()
@@ -208,7 +228,7 @@ def make_analysis_charts(df):
 st.title("Cluster Topic Explorer")
 
 # Create tabs
-tab1, tab2, tab3, tab4 = st.tabs(["similarity_search", "reduced_labels_scipy_cut", "reduced_labels_dbscan_cut", "hdbscan_labels(Uncut)"])#, "hdbscan_clusters_roberta"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["similarity_search", "reduced_labels_scipy_cut", "reduced_labels_dbscan_cut", "hdbscan_labels(Uncut)","more email samples"])#, "hdbscan_clusters_roberta"])
 
 
 with tab1:
@@ -237,8 +257,11 @@ funding that isn't so reliant on this specific transaction? I'm worried that if 
 will have a significant impact on our reported earnings and debt levels.''',
     )
 
-    if st.button("Search"):
+    if st.button("Search",key='button1'):
         # st.write(query_string.split('\n'))
+        if df_embed is None:
+            df_embed = load_data()
+
         if not query_string:
             st.warning("Please enter some text to perform a search.")
         else:
@@ -341,10 +364,10 @@ with tab2:
     st.subheader("Most representative email")
     # st.subheader('-------  sample 1  ----')
     st.markdown('<p style="font-size:25px;">------------  sample 1  ------------</p>', unsafe_allow_html=True)
-    st.write(filtered_emails_scipy['email_body'][0])
+    st.write(filtered_emails_scipy['cleaned_email_body'][0])
     st.markdown('<p style="font-size:25px;">------------  sample 2  ------------</p>', unsafe_allow_html=True)
     if len(filtered_emails_scipy) > 1:
-        st.write(filtered_emails_scipy['email_body'][1])
+        st.write(filtered_emails_scipy['cleaned_email_body'][1])
 
 
     df_scipy_analysis= load_topic_analysis(source_table='scipy_topic_breakdown_analysis', topic=selected_scipy)
@@ -383,10 +406,10 @@ with tab3:
     st.subheader("Most representative email")
     # st.subheader('-------  sample 1  ----')
     st.markdown('<p style="font-size:25px;">------------  sample 1  ------------</p>', unsafe_allow_html=True)
-    st.write(filtered_emails_dbscan['email_body'][0])
+    st.write(filtered_emails_dbscan['cleaned_email_body'][0])
     st.markdown('<p style="font-size:25px;">------------  sample 2  ------------</p>', unsafe_allow_html=True)
     if len(filtered_emails_dbscan) > 1:
-        st.write(filtered_emails_dbscan['email_body'][1])
+        st.write(filtered_emails_dbscan['cleaned_email_body'][1])
 
 
 
@@ -426,10 +449,16 @@ with tab4:
     st.subheader("Most representative email")
     # st.subheader('-------  sample 1  ----')
     st.markdown('<p style="font-size:25px;">------------  sample 1  ------------</p>', unsafe_allow_html=True)
-    st.write(filtered_emails_hdbscan['email_body'][0])
+    st.write(filtered_emails_hdbscan['cleaned_email_body'][0])
     st.markdown('<p style="font-size:25px;">------------  sample 2  ------------</p>', unsafe_allow_html=True)
     if len(filtered_emails_hdbscan) > 1:
-        st.write(filtered_emails_hdbscan['email_body'][1])
+        st.write(filtered_emails_hdbscan['cleaned_email_body'][1])
+    # st.markdown('<p style="font-size:25px;">------------  sample 3  ------------</p>', unsafe_allow_html=True)
+    # if len(filtered_emails_hdbscan) > 2:
+    #     st.write(filtered_emails_hdbscan['email_body'][2])
+    # st.markdown('<p style="font-size:25px;">------------  sample 4  ------------</p>', unsafe_allow_html=True)
+    # if len(filtered_emails_hdbscan) > 3:
+    #     st.write(filtered_emails_hdbscan['email_body'][3])
 
 
 
@@ -452,3 +481,58 @@ with tab4:
     # st.subheader("Emails by Sub-Mailbox")
     st.plotly_chart(fig_sub3, use_container_width=True,key="hdbscan_sub")
     
+with tab5:
+
+    st.header("Retrieve Emails for topics")
+    options_field = ['hdbscan_clusters_roberta', 'reduced_labels_dbscan_cut', 'reduced_labels_scipy_cut']
+    
+    selected_field = st.selectbox("Cluster Groups", options_field)
+    cluster_number=st.number_input("Input cluster number",min_value=0,max_value=4800)
+
+    # Custom CSS for word wrap in dataframe
+    custom_css = """
+            <style>
+                /* Target the cells (td) and headers (th) within the dataframe */
+                .dataframe td, .dataframe th {
+                    white-space: pre-wrap;   /* This is the key property for text wrapping */
+                    vertical-align: top;     /* Aligns text to the top of the cell */
+                    font-size: 14px;         /* Optional: Adjust font size */
+                    word-break: break-word;  /* Ensures long words are broken if they exceed cell width */
+                }
+            </style>
+            """
+    if st.button("Search",key='button2'):
+        with st.spinner("Processing search..."):
+            # Inject the custom CSS
+            
+            filtered_emails_all = topic_email(source_table='embeddings', topic_label=selected_field, topic_value=cluster_number)
+            # filtered_emails_all['cleaned_email_body'] = filtered_emails_all['cleaned_email_body'].apply(
+            #                     lambda x: textwrap.fill(x, width=900)
+            #                 )
+            # st.markdown(custom_css, unsafe_allow_html=True)
+            # st.dataframe(filtered_emails_all[['cleaned_email_body']], use_container_width=True)
+            
+            # Function to handle moving to the next record
+
+            # Iterate through each row in the DataFrame
+            for index, row in filtered_emails_all.iterrows():
+                # Use st.container() to group elements for a clean visual separation
+                if index > 30:
+                    break
+                with st.container(border=True):
+                    st.subheader(f"Email {index + 1}")
+
+                    # Display subject (optional column)
+                    # if 'email_subject' in filtered_emails_all.columns:
+                    #     st.markdown(f"**Subject:** {textwrap.fillrow['email_subject']}")
+
+                    # Display the long body text using st.markdown
+                    # This ensures the text wraps naturally within the Streamlit page width
+                    # st.markdown(f"**Body Content:**")
+                    
+                    # Display the content within a markdown code block for pre-formatted wrapping
+                    st.markdown(textwrap.fill(row['email_body'],width=500))
+                
+                # Add a little space between records
+                # st.markdown("---")
+                            

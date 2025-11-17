@@ -1,3 +1,6 @@
 4_enron_mail_nlp/data/*
 4_enron_mail_nlp/data/deleted_emails.csv
 requirements.txt
+4_enron_mail_nlp/notebooks_scripts/body_deleted_embeddings.pkl
+4_enron_mail_nlp/.dashenv/*
+enron_reorg/*
