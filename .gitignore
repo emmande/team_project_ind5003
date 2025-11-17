@@ -4,3 +4,6 @@ requirements.txt
 4_enron_mail_nlp/notebooks_scripts/body_deleted_embeddings.pkl
 4_enron_mail_nlp/.dashenv/*
 enron_reorg/*
+4_enron_mail_nlp/notebooks_scripts/dashboard.py
+4_enron_mail_nlp/notebooks_scripts/Clustering_roberta_embedding.ipynb
+4_enron_mail_nlp/notebooks_scripts/Clustering_roberta_embedding.ipynb
